@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Arm Blitz Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💪</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #14141f;
+    --surface2: #1c1c2e;
+    --border: #2a2a3d;
+    --text: #e8e8f0;
+    --text-dim: #6b6b80;
+    --accent: #6c5ce7;
+    --accent-glow: rgba(108, 92, 231, 0.3);
+    --bicep: #00b894;
+    --tricep: #fd79a8;
+    --chest: #fdcb6e;
+    --shoulder: #74b9ff;
+    --back: #a29bfe;
+    --legs: #fab1a0;
+    --abs: #55efc4;
+    --success: #00b894;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  .header { position: sticky; top: 0; z-index: 100; background: linear-gradient(to bottom, var(--bg), rgba(10,10,15,0.95)); backdrop-filter: blur(20px); padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
+  .header h1 { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; background: linear-gradient(135deg, #6c5ce7, #a29bfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .header-sub { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 2px; display: flex; align-items: center; gap: 8px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; transition: background 0.3s; }
+  .sync-dot.ok { background: var(--success); }
+  .sync-dot.err { background: var(--tricep); }
+  .sync-dot.saving { background: var(--chest); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .day-tabs { display: flex; gap: 6px; padding: 12px 20px; overflow-x: auto; scrollbar-width: none; }
+  .day-tabs::-webkit-scrollbar { display: none; }
+  .day-tab { flex-shrink: 0; padding: 10px 18px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; position: relative; }
+  .day-tab.active { background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 4px 20px var(--accent-glow); }
+  .day-tab .tab-check { position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; background: var(--success); border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 9px; }
+  .day-tab.completed .tab-check { display: flex; }
+  .day-content { padding: 0 16px 120px; }
+  .section-label { display: flex; align-items: center; gap: 8px; margin: 20px 0 10px; padding: 0 4px; }
+  .section-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .section-label span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
+  .exercise-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 8px; overflow: hidden; transition: border-color 0.2s; }
+  .exercise-card.done { border-color: var(--success); }
+  .exercise-card.done .exercise-header { opacity: 0.6; }
+  .exercise-header { display: flex; align-items: center; padding: 14px 16px; gap: 12px; cursor: pointer; transition: opacity 0.2s; }
+  .exercise-num { width: 26px; height: 26px; border-radius: 8px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text-dim); flex-shrink: 0; }
+  .exercise-card.done .exercise-num { background: var(--success); color: white; }
+  .exercise-info { flex: 1; min-width: 0; }
+  .exercise-name { font-size: 14px; font-weight: 700; line-height: 1.3; }
+  .exercise-meta { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+  .exercise-expand { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 16px; transition: transform 0.2s; }
+  .exercise-card.open .exercise-expand { transform: rotate(180deg); }
+  .exercise-body { display: none; padding: 0 16px 14px; }
+  .exercise-card.open .exercise-body { display: block; }
+  .exercise-cue { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; padding: 8px 12px; background: var(--surface2); border-radius: 8px; line-height: 1.5; border-left: 3px solid var(--accent); font-weight: 600; }
+  .exercise-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 12px; padding: 10px 12px; background: rgba(108, 92, 231, 0.06); border-radius: 8px; line-height: 1.7; }
+  .last-session { margin-bottom: 10px; padding: 8px 12px; background: rgba(0, 184, 148, 0.08); border-radius: 8px; border-left: 3px solid var(--success); }
+  .last-session-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--success); margin-bottom: 4px; }
+  .last-session-vals { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); line-height: 1.6; }
+  .sets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .set-entry { background: var(--surface2); border-radius: 10px; padding: 10px; }
+  .set-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 6px; }
+  .set-inputs { display: flex; gap: 6px; }
+  .input-group { flex: 1; }
+  .input-group input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; text-align: center; outline: none; transition: border-color 0.2s; }
+  .input-group input:focus { border-color: var(--accent); }
+  .input-group input.filled { border-color: var(--success); }
+  .input-group label { display: block; text-align: center; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-top: 4px; }
+  .session-bar { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, var(--bg), rgba(10,10,15,0.95)); backdrop-filter: blur(20px); border-top: 1px solid var(--border); padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); }
+  .session-bar-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .session-progress { flex: 1; }
+  .progress-text { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); margin-bottom: 6px; }
+  .progress-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 2px; transition: width 0.4s ease; }
+  .btn-clear { padding: 10px 16px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .history-btn { position: absolute; top: 16px; right: 20px; padding: 6px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: flex-end; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-height: 70vh; overflow-y: auto; padding: 24px 20px calc(20px + env(safe-area-inset-bottom)); }
+  .modal h2 { font-size: 16px; font-weight: 900; margin-bottom: 16px; }
+  .history-entry { padding: 14px; background: var(--surface2); border-radius: 12px; margin-bottom: 10px; }
+  .history-date { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--accent); margin-bottom: 8px; }
+  .modal-close { display: block; width: 100%; padding: 12px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 12px; }
+  @media (min-width: 500px) { .sets-grid { grid-template-columns: repeat(4, 1fr); } }
+  .day-notes { margin-top: 20px; padding: 0 4px; }
+  .day-notes-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 8px; }
+  .day-notes textarea { width: 100%; min-height: 80px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 13px; line-height: 1.6; outline: none; resize: vertical; transition: border-color 0.2s; }
+  .day-notes textarea:focus { border-color: var(--accent); }
+  .day-notes textarea::placeholder { color: var(--text-dim); opacity: 0.5; }
+  .loading { text-align: center; padding: 40px; color: var(--text-dim); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>ARM BLITZ</h1>
+  <div class="header-sub">
+    <span>4x/week &middot; ~60 min &middot; minimal spinal load</span>
+    <div class="sync-dot" id="syncDot" title="Connection status"></div>
+  </div>
+  <button class="history-btn" onclick="showHistory()">LOG</button>
+</div>
+<div class="day-tabs" id="dayTabs"></div>
+<div class="day-content" id="dayContent"><div class="loading">Loading...</div></div>
+<div class="session-bar">
+  <div class="session-bar-inner">
+    <div class="session-progress">
+      <div class="progress-text" id="progressText">0 / 0 exercises</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+    <button class="btn-clear" onclick="clearDay()">Save &amp; Reset</button>
+  </div>
+</div>
+<div class="modal-overlay" id="historyModal" onclick="closeHistory(event)">
+  <div class="modal">
+    <h2>Session Log</h2>
+    <div id="historyContent"></div>
+    <button class="modal-close" onclick="document.getElementById('historyModal').classList.remove('show')">Close</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SUPABASE CONFIG — Replace these with your project values
+// ============================================================
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============================================================
+// PROGRAM DATA
+// ============================================================
+const PROGRAM = [
+  { name: "Day 1", sub: "Biceps + Chest", sections: [
+    { label: "BICEPS", color: "var(--bicep)", exercises: [
+      { name: "Seated Incline Curls", sets: 4, reps: "10", note: "30-45\u00b0 incline, full stretch at bottom", desc: "Set an adjustable bench to 30-45\u00b0. Sit back with a dumbbell in each hand, arms hanging straight down behind you. Curl up without swinging your shoulders forward. The incline puts your biceps in a deep stretched position at the bottom, targeting the long head. Lower slowly for a full 2-3 second negative on every rep." },
+      { name: "Spider Curls (EZ Bar)", sets: 3, reps: "12", note: "Chest against incline bench, no swing", desc: "Set a bench to about 45\u00b0 and lean your chest against the raised end so your arms hang straight down holding an EZ bar. Curl the bar up, keeping your upper arms perpendicular to the floor. This removes all momentum and isolates the biceps with peak tension at the top. Lower under full control." },
+      { name: "Hammer Curls", sets: 3, reps: "12", note: "Builds brachioradialis, protects elbows", desc: "Stand or sit holding dumbbells with a neutral grip (palms facing each other throughout). Curl up without rotating your wrist. This targets the brachioradialis and brachialis which add thickness to the outer arm and protect the elbow joint. Keep elbows pinned to your sides and don\u2019t swing." },
+      { name: "Single-Arm Cable Curls", sets: 3, reps: "12/arm", note: "Full range, peak contraction hold", desc: "Stand side-on to a low cable and grab the handle with the far arm. Curl up with full range of motion, squeeze and hold at the top for a one-count before lowering. The cable provides constant tension throughout \u2014 go slowly to maximise this. Complete all reps on one arm before switching." },
+    ]},
+    { label: "CHEST", color: "var(--chest)", exercises: [
+      { name: "Incline DB Bench Press", sets: 4, reps: "10", note: "30\u00b0 incline, upper chest focus", desc: "Set the bench to about 30\u00b0. Press dumbbells up from shoulder level until arms are fully extended, palms facing forward. Lower slowly until upper arms are roughly parallel with the floor, feeling a stretch across the upper chest. Keep shoulder blades pinched together and feet flat on the floor." },
+      { name: "Cable Flyes (low-to-high)", sets: 3, reps: "12", note: "Squeeze at top, control negative", desc: "Set both cables to the lowest position. Stand centrally, grab a handle in each hand, and bring them up and together in a sweeping arc finishing at about chin height. Squeeze your chest at the top. Lower slowly along the same arc. Targets upper chest fibres. Keep a slight bend in your elbows throughout." },
+    ]},
+    { label: "ABS", color: "var(--abs)", exercises: [
+      { name: "Cable Crunches", sets: 3, reps: "15", note: "Hinge at hips, not spine", desc: "Kneel facing a high cable with a rope held behind your head. Crunch down by flexing at the waist, driving elbows toward knees. The movement comes from your abs contracting, not from pulling with your arms. Keep hips stationary \u2014 only your torso curls. Return slowly to the start." },
+    ]},
+  ]},
+  { name: "Day 2", sub: "Triceps + Shoulders/Back", sections: [
+    { label: "TRICEPS", color: "var(--tricep)", exercises: [
+      { name: "Close-Grip Bench Press", sets: 4, reps: "10", note: "Hands shoulder-width, elbows tucked", desc: "Lie flat on a bench and grip the barbell with hands shoulder-width apart or slightly narrower. Lower the bar to your lower chest with elbows tucked at roughly 30-45\u00b0 from your torso. Press up by extending the elbows. This shifts emphasis from chest to triceps. Keep wrists straight and avoid flaring elbows outward." },
+      { name: "Skull Crushers", sets: 3, reps: "12", note: "Lower to forehead, elbows fixed", desc: "Lie flat on a bench holding an EZ bar with a narrow grip, arms extended above your chest. Keeping upper arms stationary and vertical, bend only at the elbows to lower the bar toward your forehead. Press back up to full extension. Elbows point at the ceiling throughout and don\u2019t flare. If elbows feel aggravated, switch to cable overhead extensions instead." },
+      { name: "Overhead Cable Tricep Ext.", sets: 3, reps: "12", note: "Rope attachment, full stretch overhead", desc: "Attach a rope to a high cable. Face away from the machine, step into a split stance, and hold the rope behind your head with elbows pointing forward. Extend your arms overhead until fully locked out, then slowly return to the stretched position. Keep your upper arms still \u2014 only your forearms move. Targets the long head of the tricep." },
+      { name: "Tricep Pushdowns (rope)", sets: 3, reps: "12", note: "Split rope at bottom, squeeze", desc: "Attach a rope to a high cable. Stand facing the machine with elbows pinned to your sides. Push down by extending your elbows, and at the bottom split the rope apart by pulling your hands outward. Squeeze the triceps for a one-count. Return slowly. Keep your torso still \u2014 no leaning into it." },
+    ]},
+    { label: "SHOULDERS + BACK", color: "var(--shoulder)", exercises: [
+      { name: "Seated DB Shoulder Press", sets: 3, reps: "10", note: "Back supported, no spinal loading", desc: "Sit on a bench at 85-90\u00b0 with your back firmly against the pad. Start with dumbbells at shoulder height, palms forward. Press straight up until arms are nearly extended (don\u2019t lock out hard). Lower slowly to shoulder level. The back support eliminates spinal loading. Don\u2019t arch your lower back away from the pad." },
+      { name: "Chest-Supported DB Rows", sets: 3, reps: "10", note: "Incline bench, no lower back stress", desc: "Set an incline bench to 30-45\u00b0 and lie face-down with a dumbbell in each hand hanging down. Row up by driving elbows back and squeezing shoulder blades together at the top. Lower under control. The chest support completely eliminates lower back involvement \u2014 the safest rowing variation for your back." },
+      { name: "Face Pulls", sets: 3, reps: "15", note: "External rotation at top, rear delts", desc: "Set a cable to head height with a rope. Pull toward your face, and as it reaches your head, pull the rope apart and externally rotate so fists end beside your ears with elbows high. Squeeze rear delts and rotator cuffs. Use light-moderate weight \u2014 this is a shoulder health exercise as much as a muscle builder." },
+    ]},
+    { label: "ABS", color: "var(--abs)", exercises: [
+      { name: "Dead Bugs", sets: 3, reps: "12/side", note: "Press lower back into floor", desc: "Lie on your back with arms toward the ceiling and knees bent at 90\u00b0 above your hips. Press your lower back firmly into the floor \u2014 this is the key. Slowly extend one arm overhead while extending the opposite leg straight out, hovering above the floor. Return to start and repeat other side. If your lower back lifts off the floor, you\u2019ve gone too far. Builds deep core stability with zero spinal loading." },
+    ]},
+  ]},
+  { name: "Day 3", sub: "Biceps + Glutes/Legs", sections: [
+    { label: "BICEPS", color: "var(--bicep)", exercises: [
+      { name: "Preacher Curls (EZ Bar)", sets: 4, reps: "10", note: "No momentum, control the negative", desc: "Sit at a preacher bench with upper arms flat against the angled pad, holding an EZ bar underhand. Curl up toward your shoulders, squeezing at the top. Lower over 2-3 seconds \u2014 the negative is where the growth happens. Don\u2019t let arms fully straighten at the bottom to maintain tension. No swinging or bouncing." },
+      { name: "Incline DB Curls", sets: 3, reps: "12", note: "45\u00b0 incline, max stretch", desc: "Set a bench to 45\u00b0 and sit back with a dumbbell in each hand hanging down. The steeper angle compared to Day 1 provides a different stretch. Curl both up simultaneously without swinging, then lower slowly. At the bottom, let arms hang fully for maximum stretch. One of the best exercises for bicep long head development." },
+      { name: "Concentration Curls", sets: 3, reps: "12", note: "Slow eccentric, peak squeeze", desc: "Sit on a bench with legs spread, lean forward slightly, and brace the back of your upper arm against your inner thigh. Curl up with strict form \u2014 the thigh brace eliminates all cheating. At the top, squeeze hard and hold for a one-count. Lower over 3 seconds. Isolates the bicep completely and builds the peak." },
+      { name: "Reverse Curls", sets: 3, reps: "15", note: "Forearm strength, elbow health", desc: "Hold a bar with an overhand grip (palms facing down). Curl up by flexing at the elbow, keeping wrists locked straight. This targets the brachioradialis and forearm extensors. Weight will be significantly lighter than regular curls. Crucial for elbow health and injury prevention at this training volume." },
+    ]},
+    { label: "GLUTES + LEGS", color: "var(--legs)", exercises: [
+      { name: "Hip Abduction Machine", sets: 4, reps: "12", note: "Squeeze and hold at full abduction", desc: "Sit in the hip abduction machine with your back flat against the pad and knees against the pads. Push your knees apart as far as possible, squeezing your glutes hard at the widest point for a one-count. Return slowly under control \u2014 don\u2019t let the weight stack slam. This isolates the gluteus medius and upper glute fibres. Lean slightly forward to increase the glute emphasis." },
+      { name: "Sled Pushes", sets: 3, reps: "30m", note: "Low handles, drive through glutes", desc: "Load a sled and grip the low handles. Get into a 45\u00b0 forward lean with arms extended and drive forward by pushing through your heels and extending your hips on each stride. Keep your core braced and back flat \u2014 the power should come from your glutes and legs, not from leaning your upper body over the sled. 30 metres per set at a heavy load, rest 60-90 seconds between sets." },
+      { name: "Leg Extensions", sets: 3, reps: "12", note: "Quad focus, controlled tempo", desc: "Sit in the leg extension machine with the pad against your lower shins just above the ankle. Extend your legs fully by straightening at the knee, squeezing your quads hard at the top for a one-count. Lower slowly over 2-3 seconds. Don\u2019t swing or use momentum. Keep your back flat against the seat and grip the handles for stability." },
+    ]},
+    { label: "ABS", color: "var(--abs)", exercises: [
+      { name: "Pallof Press", sets: 3, reps: "20s/side", note: "Anti-rotation, great for back health", desc: "Stand side-on to a cable at chest height. Hold the handle with both hands at your chest. Press arms straight out and hold for 20 seconds \u2014 the cable tries to rotate you toward the machine. Resist by bracing your core. Return hands to chest and switch sides. Anti-rotation exercise that builds deep core stability and is excellent for back health." },
+    ]},
+  ]},
+  { name: "Day 4", sub: "Triceps + Back/Shoulders + Chest", sections: [
+    { label: "TRICEPS", color: "var(--tricep)", exercises: [
+      { name: "JM Press", sets: 4, reps: "10", note: "Hybrid movement, heavy tricep load", desc: "Lie on a flat bench with a barbell, close grip. This is a hybrid between close-grip bench and skull crusher \u2014 lower the bar toward your upper chest/chin area by bending at the elbows, then press back up and slightly forward. Allows heavier loading than skull crushers while maintaining tricep focus. Keep elbows pointed forward, not flared." },
+      { name: "Overhead DB Tricep Ext.", sets: 3, reps: "12", note: "Single DB, both hands, full stretch", desc: "Sit on a bench with back support. Hold a single dumbbell with both hands wrapped around one end, arms extended overhead. Lower behind your head by bending at the elbows until you feel a deep stretch. Press back up to full extension. Keep upper arms close to your head and pointing straight up. The overhead position targets the tricep long head." },
+      { name: "Cable Kickbacks", sets: 3, reps: "12", note: "Lock upper arm, squeeze at extension", desc: "Set a cable to the lowest position. Hinge forward and grab the handle. Pin your upper arm parallel to your torso and extend your forearm back until your arm is completely straight. Squeeze the tricep hard at full extension for a one-count. Lower slowly. The cable provides constant tension, making this more effective than dumbbell kickbacks." },
+      { name: "Diamond Push-Ups", sets: 3, reps: "Failure", note: "Drop if elbows are fatigued", desc: "Push-up position with hands close together, index fingers and thumbs touching to form a diamond. Lower chest to hands with elbows tracking back along your body. Press back up. Bodyweight tricep finisher. If elbows are sore from the preceding work, skip these entirely \u2014 they\u2019re optional." },
+    ]},
+    { label: "BACK + SHOULDERS", color: "var(--back)", exercises: [
+      { name: "Chest-Supported DB Rows", sets: 3, reps: "10", note: "Different angle from Day 2", desc: "Same setup as Day 2 \u2014 face-down on incline bench, row dumbbells up. Try a slightly different bench angle or elbow path (wider for more rear delt, tighter for more lat). Chest support keeps lower back completely out of it. Focus on the squeeze between shoulder blades at the top." },
+      { name: "Lateral Raises", sets: 3, reps: "15", note: "Light weight, control the movement", desc: "Stand or sit holding light dumbbells at your sides. Raise arms out to the sides until roughly parallel with the floor, leading with elbows rather than hands. Think about pouring water from a jug at the top. Lower over 2-3 seconds. Use a weight you can control perfectly for all 15 reps \u2014 ego lifting here is pointless and risks shoulder impingement." },
+      { name: "Rear Delt Flyes", sets: 3, reps: "12", note: "Incline bench supported", desc: "Lie face-down on a 30\u00b0 incline bench with light dumbbells hanging down. Raise arms out to the sides in a reverse fly, squeezing shoulder blades together at the top. Lower slowly. The bench eliminates momentum. Keep a slight elbow bend. Targets the rear delts which are important for shoulder balance and posture." },
+    ]},
+    { label: "CHEST", color: "var(--chest)", exercises: [
+      { name: "Incline Cable Flyes", sets: 3, reps: "12", note: "Upper chest, constant cable tension", desc: "Set an incline bench between two low cable pulleys. Lie back and bring handles together above your upper chest in a wide arc. Cables provide constant tension throughout the entire range, including at the top where dumbbells lose tension. Squeeze at the peak and lower slowly. Slight elbow bend throughout." },
+    ]},
+    { label: "ABS", color: "var(--abs)", exercises: [
+      { name: "Cable Crunches", sets: 3, reps: "15", note: "Hinge at hips, not spine", desc: "Kneel facing a high cable with a rope held behind your head. Crunch down by flexing at the waist, driving elbows toward knees. Movement comes from abs contracting, not pulling with arms. Keep hips stationary \u2014 only torso curls. Return slowly." },
+    ]},
+  ]},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let currentDay = 0;
+let liveCache = [{},{},{},{}]; // in-memory cache of live data per day
+let noteCache = ['','','','']; // in-memory cache of notes per day
+let lastSessionCache = [null,null,null,null]; // cached last sessions
+let tabHasData = [false,false,false,false];
+let saveTimer = null;
+let syncOk = false;
+
+// ============================================================
+// SYNC STATUS
+// ============================================================
+function setSyncStatus(status) {
+  const dot = document.getElementById('syncDot');
+  dot.className = 'sync-dot ' + status;
+}
+
+// ============================================================
+// SUPABASE DATA LAYER
+// ============================================================
+async function dbLoadLive(dayIdx) {
+  try {
+    const { data, error } = await sb.from('live_data').select('*').eq('day_index', dayIdx).maybeSingle();
+    if (error) throw error;
+    if (data) {
+      liveCache[dayIdx] = data.data || {};
+      noteCache[dayIdx] = data.note || '';
+    } else {
+      liveCache[dayIdx] = {};
+      noteCache[dayIdx] = '';
+    }
+    return liveCache[dayIdx];
+  } catch (e) {
+    console.error('dbLoadLive error:', e);
+    return liveCache[dayIdx];
+  }
+}
+
+async function dbSaveLive(dayIdx) {
+  setSyncStatus('saving');
+  try {
+    const { error } = await sb.from('live_data').upsert({
+      day_index: dayIdx,
+      data: liveCache[dayIdx],
+      note: noteCache[dayIdx],
+      updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    setSyncStatus('ok');
+  } catch (e) {
+    console.error('dbSaveLive error:', e);
+    setSyncStatus('err');
+  }
+}
+
+function debouncedSave(dayIdx) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => dbSaveLive(dayIdx), 600);
+}
+
+async function dbSaveSession(dayIdx) {
+  const data = liveCache[dayIdx];
+  const note = noteCache[dayIdx];
+  if (!Object.keys(data).length && !note) return false;
+  setSyncStatus('saving');
+  try {
+    const { error } = await sb.from('sessions').insert({
+      day_name: PROGRAM[dayIdx].name,
+      day_sub: PROGRAM[dayIdx].sub,
+      data: data,
+      note: note
+    });
+    if (error) throw error;
+    // Clear live data
+    await sb.from('live_data').delete().eq('day_index', dayIdx);
+    liveCache[dayIdx] = {};
+    noteCache[dayIdx] = '';
+    lastSessionCache[dayIdx] = null; // bust cache
+    setSyncStatus('ok');
+    return true;
+  } catch (e) {
+    console.error('dbSaveSession error:', e);
+    setSyncStatus('err');
+    return false;
+  }
+}
+
+async function dbGetLastSession(dayIdx) {
+  if (lastSessionCache[dayIdx]) return lastSessionCache[dayIdx];
+  try {
+    const { data, error } = await sb.from('sessions')
+      .select('*')
+      .eq('day_name', PROGRAM[dayIdx].name)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    lastSessionCache[dayIdx] = data || null;
+    return lastSessionCache[dayIdx];
+  } catch (e) {
+    console.error('dbGetLastSession error:', e);
+    return null;
+  }
+}
+
+async function dbGetAllSessions() {
+  try {
+    const { data, error } = await sb.from('sessions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.error('dbGetAllSessions error:', e);
+    return [];
+  }
+}
+
+async function dbCheckTabData() {
+  try {
+    const { data, error } = await sb.from('live_data').select('day_index,data');
+    if (error) throw error;
+    tabHasData = [false,false,false,false];
+    if (data) data.forEach(row => {
+      if (row.data && Object.keys(row.data).length > 0) tabHasData[row.day_index] = true;
+    });
+  } catch (e) {
+    console.error('dbCheckTabData error:', e);
+  }
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function renderTabs() {
+  document.getElementById('dayTabs').innerHTML = PROGRAM.map((day, i) => {
+    const has = tabHasData[i] || Object.keys(liveCache[i]).length > 0;
+    return `<div class="day-tab ${i === currentDay ? 'active' : ''} ${has ? 'completed' : ''}" onclick="switchDay(${i})">${day.name}<br><span style="font-size:10px;font-weight:300;opacity:0.7">${day.sub.split('+')[0].trim()}</span><div class="tab-check">\u2713</div></div>`;
+  }).join('');
+}
+
+function checkExDone(data, eid, sets) {
+  for (let s = 0; s < sets; s++) { if (!data[`${eid}_s${s}_w`] && !data[`${eid}_s${s}_r`]) return false; }
+  return true;
+}
+
+function getLastExData(lastSession, eid, sets) {
+  if (!lastSession) return null;
+  const vals = [];
+  for (let s = 0; s < sets; s++) {
+    const w = lastSession.data[`${eid}_s${s}_w`] || '';
+    const r = lastSession.data[`${eid}_s${s}_r`] || '';
+    if (w || r) vals.push(`${w || '?'}kg \u00d7 ${r || '?'}`);
+  }
+  return vals.length ? vals : null;
+}
+
+function renderDayContent(d, data, lastSession) {
+  const day = PROGRAM[d];
+  const note = noteCache[d] || '';
+  let exNum = 0, html = '';
+  day.sections.forEach(sec => {
+    html += `<div class="section-label"><div class="section-dot" style="background:${sec.color}"></div><span>${sec.label}</span></div>`;
+    sec.exercises.forEach(ex => {
+      const eid = `d${d}e${exNum}`, isDone = checkExDone(data, eid, ex.sets);
+      const lastVals = getLastExData(lastSession, eid, ex.sets);
+      let lastHtml = '';
+      if (lastVals) {
+        const lastDate = new Date(lastSession.created_at).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+        lastHtml = `<div class="last-session"><div class="last-session-label">Last session \u2014 ${lastDate}</div><div class="last-session-vals">${lastVals.map((v,i) => `S${i+1}: ${v}`).join(' &nbsp;\u00b7&nbsp; ')}</div></div>`;
+      }
+      html += `<div class="exercise-card ${isDone ? 'done' : ''}" id="card_${eid}"><div class="exercise-header" onclick="toggleCard('${eid}')"><div class="exercise-num">${isDone ? '\u2713' : (exNum+1)}</div><div class="exercise-info"><div class="exercise-name">${ex.name}</div><div class="exercise-meta">${ex.sets}\u00d7${ex.reps}</div></div><div class="exercise-expand">\u25be</div></div><div class="exercise-body" onclick="event.stopPropagation()"><div class="exercise-cue">${ex.note}</div>${ex.desc ? `<div class="exercise-desc">${ex.desc}</div>` : ''}${lastHtml}<div class="sets-grid">`;
+      for (let s = 0; s < ex.sets; s++) {
+        const w = data[`${eid}_s${s}_w`] || '', r = data[`${eid}_s${s}_r`] || '';
+        html += `<div class="set-entry"><div class="set-label">Set ${s+1}</div><div class="set-inputs"><div class="input-group"><input type="number" inputmode="decimal" placeholder="\u2014" value="${w}" class="${w?'filled':''}" onchange="saveInput(${d},'${eid}_s${s}_w',this.value)"><label>kg</label></div><div class="input-group"><input type="number" inputmode="numeric" placeholder="\u2014" value="${r}" class="${r?'filled':''}" onchange="saveInput(${d},'${eid}_s${s}_r',this.value)"><label>reps</label></div></div></div>`;
+      }
+      html += `</div></div></div>`;
+      exNum++;
+    });
+  });
+  html += `<div class="day-notes"><div class="day-notes-label">Session Notes</div><textarea placeholder="How did it feel? Anything to adjust next week?" oninput="saveNote(${d},this.value)">${note}</textarea></div>`;
+  document.getElementById('dayContent').innerHTML = html;
+  updateProgress(d, data);
+}
+
+async function renderDay(d) {
+  await dbLoadLive(d);
+  const lastSession = await dbGetLastSession(d);
+  renderDayContent(d, liveCache[d], lastSession);
+}
+
+function toggleCard(eid) {
+  const card = document.getElementById(`card_${eid}`);
+  if (card.classList.contains('open') && card.querySelector('input:focus, textarea:focus')) return;
+  card.classList.toggle('open');
+}
+
+function saveInput(d, key, val) {
+  if (val) liveCache[d][key] = val; else delete liveCache[d][key];
+  tabHasData[d] = Object.keys(liveCache[d]).length > 0;
+  updateCardStates(d);
+  updateProgress(d, liveCache[d]);
+  renderTabs();
+  debouncedSave(d);
+}
+
+function saveNote(d, val) {
+  noteCache[d] = val;
+  debouncedSave(d);
+}
+
+function updateCardStates(d) {
+  const day = PROGRAM[d], data = liveCache[d];
+  let exNum = 0;
+  day.sections.forEach(sec => {
+    sec.exercises.forEach(ex => {
+      const eid = `d${d}e${exNum}`;
+      const card = document.getElementById(`card_${eid}`);
+      if (card) {
+        const isDone = checkExDone(data, eid, ex.sets);
+        card.classList.toggle('done', isDone);
+        const num = card.querySelector('.exercise-num');
+        if (num) num.textContent = isDone ? '\u2713' : (exNum + 1);
+        card.querySelectorAll('input').forEach(inp => inp.classList.toggle('filled', !!inp.value));
+      }
+      exNum++;
+    });
+  });
+}
+
+function updateProgress(d, data) {
+  const day = PROGRAM[d];
+  let total = 0, done = 0, n = 0;
+  day.sections.forEach(s => s.exercises.forEach(ex => { total++; if (checkExDone(data, `d${d}e${n}`, ex.sets)) done++; n++; }));
+  document.getElementById('progressText').textContent = `${done} / ${total} exercises`;
+  document.getElementById('progressFill').style.width = `${total ? (done/total*100) : 0}%`;
+}
+
+async function switchDay(i) {
+  currentDay = i;
+  renderTabs();
+  document.getElementById('dayContent').innerHTML = '<div class="loading">Loading...</div>';
+  await renderDay(i);
+}
+
+async function clearDay() {
+  if (!confirm(`Save ${PROGRAM[currentDay].name} to log and reset for next session?`)) return;
+  const ok = await dbSaveSession(currentDay);
+  if (ok) {
+    tabHasData[currentDay] = false;
+    renderTabs();
+    await renderDay(currentDay);
+  } else {
+    alert('Save failed \u2014 check your connection and try again.');
+  }
+}
+
+async function showHistory() {
+  document.getElementById('historyContent').innerHTML = '<div class="loading">Loading log...</div>';
+  document.getElementById('historyModal').classList.add('show');
+  const sessions = await dbGetAllSessions();
+  const el = document.getElementById('historyContent');
+  if (!sessions.length) {
+    el.innerHTML = '<p style="color:var(--text-dim);font-size:13px;text-align:center;padding:20px">No sessions logged yet. Complete a day and hit Save & Reset to log it.</p>';
+    return;
+  }
+  el.innerHTML = sessions.map(e => {
+    const dt = new Date(e.created_at), ds = dt.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+    const dayIdx = PROGRAM.findIndex(p => p.name === e.day_name);
+    let exLines = '';
+    if (dayIdx >= 0) {
+      let exNum = 0;
+      PROGRAM[dayIdx].sections.forEach(sec => {
+        sec.exercises.forEach(ex => {
+          const eid = `d${dayIdx}e${exNum}`;
+          const sets = [];
+          for (let s = 0; s < ex.sets; s++) {
+            const w = e.data[`${eid}_s${s}_w`], r = e.data[`${eid}_s${s}_r`];
+            if (w || r) sets.push(`${w||'?'}kg\u00d7${r||'?'}`);
+          }
+          if (sets.length) {
+            exLines += `<div style="margin-top:6px"><div style="color:var(--text);font-size:12px;font-weight:600">${ex.name}</div><div style="font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;margin-top:2px">${sets.join('&nbsp; \u2192 &nbsp;')}</div></div>`;
+          }
+          exNum++;
+        });
+      });
+    }
+    const noteHtml = e.note ? `<div style="margin-top:8px;font-size:12px;font-style:italic;color:var(--text-dim);border-left:2px solid var(--accent);padding-left:8px;line-height:1.5">${e.note}</div>` : '';
+    return `<div class="history-entry"><div class="history-date">${ds} \u2014 ${e.day_name}: ${e.day_sub}</div>${exLines}${noteHtml}</div>`;
+  }).join('');
+}
+
+function closeHistory(e) { if (e.target === e.currentTarget) document.getElementById('historyModal').classList.remove('show'); }
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  // Test connection
+  try {
+    const { error } = await sb.from('live_data').select('day_index').limit(1);
+    if (error) throw error;
+    syncOk = true;
+    setSyncStatus('ok');
+  } catch (e) {
+    console.error('Supabase connection failed:', e);
+    setSyncStatus('err');
+    document.getElementById('dayContent').innerHTML = '<div class="loading" style="color:var(--tricep)">Could not connect to database.<br>Check your Supabase config.</div>';
+    return;
+  }
+
+  await dbCheckTabData();
+  renderTabs();
+  await renderDay(0);
+}
+
+init();
+</script>
+</body>
+</html>
