@@ -131,8 +131,8 @@
 // ============================================================
 // SUPABASE CONFIG — Replace these with your project values
 // ============================================================
-const SUPABASE_URL = 'https://hhitgjwsztompumdhrid.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoaXRnandzenRvbXB1bWRocmlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMTcxMTQsImV4cCI6MjA4Nzc5MzExNH0.Emj8c_iIIgAyygdsWcrsInggg9jl_g8GQ-k-Zs_jWdA';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -189,21 +189,19 @@ const PROGRAM = [
   ]},
   { name: "Day 4", sub: "Triceps + Back/Shoulders + Chest", sections: [
     { label: "TRICEPS", color: "var(--tricep)", exercises: [
-      { name: "JM Press", sets: 4, reps: "10", note: "Hybrid movement, heavy tricep load", desc: "Lie on a flat bench with a barbell, close grip. This is a hybrid between close-grip bench and skull crusher \u2014 lower the bar toward your upper chest/chin area by bending at the elbows, then press back up and slightly forward. Allows heavier loading than skull crushers while maintaining tricep focus. Keep elbows pointed forward, not flared." },
-      { name: "Overhead DB Tricep Ext.", sets: 3, reps: "12", note: "Single DB, both hands, full stretch", desc: "Sit on a bench with back support. Hold a single dumbbell with both hands wrapped around one end, arms extended overhead. Lower behind your head by bending at the elbows until you feel a deep stretch. Press back up to full extension. Keep upper arms close to your head and pointing straight up. The overhead position targets the tricep long head." },
+      { name: "French Press", sets: 4, reps: "12", note: "EZ bar or DBs, full stretch overhead", desc: "Sit or stand holding an EZ bar or dumbbells overhead with arms fully extended. Lower the weight behind your head by bending at the elbows until you feel a deep stretch in the triceps. Press back up to full extension. Keep your upper arms close to your head throughout and don\u2019t let your elbows flare outward. The deep stretch targets the long head of the tricep. Lighter weight and controlled tempo \u2014 this isn\u2019t about going heavy." },
       { name: "Cable Kickbacks", sets: 3, reps: "12", note: "Lock upper arm, squeeze at extension", desc: "Set a cable to the lowest position. Hinge forward and grab the handle. Pin your upper arm parallel to your torso and extend your forearm back until your arm is completely straight. Squeeze the tricep hard at full extension for a one-count. Lower slowly. The cable provides constant tension, making this more effective than dumbbell kickbacks." },
-      { name: "Diamond Push-Ups", sets: 3, reps: "Failure", note: "Drop if elbows are fatigued", desc: "Push-up position with hands close together, index fingers and thumbs touching to form a diamond. Lower chest to hands with elbows tracking back along your body. Press back up. Bodyweight tricep finisher. If elbows are sore from the preceding work, skip these entirely \u2014 they\u2019re optional." },
     ]},
     { label: "BACK + SHOULDERS", color: "var(--back)", exercises: [
-      { name: "Chest-Supported DB Rows", sets: 3, reps: "10", note: "Different angle from Day 2", desc: "Same setup as Day 2 \u2014 face-down on incline bench, row dumbbells up. Try a slightly different bench angle or elbow path (wider for more rear delt, tighter for more lat). Chest support keeps lower back completely out of it. Focus on the squeeze between shoulder blades at the top." },
-      { name: "Lateral Raises", sets: 3, reps: "15", note: "Light weight, control the movement", desc: "Stand or sit holding light dumbbells at your sides. Raise arms out to the sides until roughly parallel with the floor, leading with elbows rather than hands. Think about pouring water from a jug at the top. Lower over 2-3 seconds. Use a weight you can control perfectly for all 15 reps \u2014 ego lifting here is pointless and risks shoulder impingement." },
+      { name: "Narrow Lat Pulldowns", sets: 3, reps: "10", note: "Close-grip handle, full stretch at top", desc: "Sit at a lat pulldown machine using a narrow V-handle or close-grip attachment. Start with arms fully extended overhead, feeling a stretch through the lats. Pull the handle down to your upper chest by driving your elbows down and back. Squeeze the lats at the bottom for a one-count, then return slowly to the full stretch position. Keep your torso mostly upright \u2014 a slight lean back is fine but don\u2019t swing." },
+      { name: "Seated Cable Rows", sets: 3, reps: "12", note: "Squeeze shoulder blades, no momentum", desc: "Sit at a cable row station with feet on the platform and knees slightly bent. Grab the handle and sit upright with arms extended. Pull the handle to your lower chest/upper abdomen by driving your elbows straight back and squeezing your shoulder blades together. Hold the contraction for a one-count. Return slowly without letting the weight pull your shoulders forward. Keep your torso still \u2014 no rocking back and forth." },
       { name: "Rear Delt Flyes", sets: 3, reps: "12", note: "Incline bench supported", desc: "Lie face-down on a 30\u00b0 incline bench with light dumbbells hanging down. Raise arms out to the sides in a reverse fly, squeezing shoulder blades together at the top. Lower slowly. The bench eliminates momentum. Keep a slight elbow bend. Targets the rear delts which are important for shoulder balance and posture." },
     ]},
     { label: "CHEST", color: "var(--chest)", exercises: [
       { name: "Incline Cable Flyes", sets: 3, reps: "12", note: "Upper chest, constant cable tension", desc: "Set an incline bench between two low cable pulleys. Lie back and bring handles together above your upper chest in a wide arc. Cables provide constant tension throughout the entire range, including at the top where dumbbells lose tension. Squeeze at the peak and lower slowly. Slight elbow bend throughout." },
     ]},
     { label: "ABS", color: "var(--abs)", exercises: [
-      { name: "Cable Crunches", sets: 3, reps: "15", note: "Hinge at hips, not spine", desc: "Kneel facing a high cable with a rope held behind your head. Crunch down by flexing at the waist, driving elbows toward knees. Movement comes from abs contracting, not pulling with arms. Keep hips stationary \u2014 only torso curls. Return slowly." },
+      { name: "Hanging Leg Raises", sets: 3, reps: "12", note: "Control the swing, curl pelvis up", desc: "Hang from a pull-up bar with arms fully extended. Raise your legs by curling your pelvis up and bringing your knees toward your chest (bent-leg) or your feet toward the bar (straight-leg for harder). The key is to curl your pelvis at the top \u2014 just lifting your legs without pelvic tilt mostly works hip flexors, not abs. Lower slowly and avoid swinging. If you can\u2019t control the swing, use a captain\u2019s chair or ab straps instead." },
     ]},
   ]},
 ];
